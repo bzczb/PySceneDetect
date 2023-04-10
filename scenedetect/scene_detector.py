@@ -86,23 +86,23 @@ class SceneDetector:
         """
         return []
 
-    def process_frame(self, frame_num: int, frame_img: Optional[numpy.ndarray]) -> List[int]:
+    def process_frame(self, frame_num: int, frame_img: Optional[numpy.ndarray]) -> List[Tuple[int, float]]:
         """Process Frame: Computes/stores metrics and detects any scene changes.
 
         Prototype method, no actual detection.
 
         Returns:
-            List of frame numbers of cuts to be added to the cutting list.
+            List of frame numbers of cuts to be added to the cutting list, and their scores.
         """
         return []
 
-    def post_process(self, frame_num: int) -> List[int]:
+    def post_process(self, frame_num: int) -> List[Tuple[int, float]]:
         """Post Process: Performs any processing after the last frame has been read.
 
         Prototype method, no actual detection.
 
         Returns:
-            List of frame numbers of cuts to be added to the cutting list.
+            List of frame numbers of cuts to be added to the cutting list, and their scores.
         """
         return []
 

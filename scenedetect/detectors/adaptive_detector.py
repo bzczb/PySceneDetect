@@ -18,7 +18,7 @@ This detector is available from the command-line as the `detect-adaptive` comman
 """
 
 from logging import getLogger
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from numpy import ndarray
 
@@ -114,7 +114,7 @@ class AdaptiveDetector(ContentDetector):
         """Not required for AdaptiveDetector."""
         return False
 
-    def process_frame(self, frame_num: int, frame_img: Optional[ndarray]) -> List[int]:
+    def process_frame(self, frame_num: int, frame_img: Optional[ndarray]) -> List[Tuple[int, float]]:
         """ Similar to ThresholdDetector, but using the HSV colour space DIFFERENCE instead
         of single-frame RGB/grayscale intensity (thus cannot detect slow fades with this method).
 
@@ -161,11 +161,11 @@ class AdaptiveDetector(ContentDetector):
 
             if self._last_cut is None:
                 # No previously detected cuts
-                cut_list.append(target[0])
+                cut_list.append((target[0], 0.0))
                 self._last_cut = target[0]
             elif (target[0] - self._last_cut) >= self.min_scene_len:
                 # Respect the min_scene_len parameter
-                cut_list.append(target[0])
+                cut_list.append((target[0], 0.0))
                 # TODO: Should this be updated every time the threshold is exceeded?
                 # It might help with flash suppression for example.
                 self._last_cut = target[0]

@@ -17,7 +17,7 @@ This detector is available from the command-line as the `detect-threshold` comma
 """
 
 from logging import getLogger
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy
 
@@ -106,7 +106,7 @@ class ThresholdDetector(SceneDetector):
     def get_metrics(self) -> List[str]:
         return self._metric_keys
 
-    def process_frame(self, frame_num: int, frame_img: Optional[numpy.ndarray]) -> List[int]:
+    def process_frame(self, frame_num: int, frame_img: Optional[numpy.ndarray]) -> List[Tuple[int, float]]:
         """
         Args:
             frame_num (int): Frame number of frame that is being passed.
@@ -154,7 +154,7 @@ class ThresholdDetector(SceneDetector):
                     f_out = self.last_fade['frame']
                     f_split = int(
                         (frame_num + f_out + int(self.fade_bias * (frame_num - f_out))) / 2)
-                    cut_list.append(f_split)
+                    cut_list.append((f_split, 0.0))
                     self.last_scene_cut = frame_num
                 self.last_fade['type'] = 'in'
                 self.last_fade['frame'] = frame_num
@@ -183,5 +183,5 @@ class ThresholdDetector(SceneDetector):
         if self.last_fade['type'] == 'out' and self.add_final_scene and (
             (self.last_scene_cut is None and frame_num >= self.min_scene_len) or
             (frame_num - self.last_scene_cut) >= self.min_scene_len):
-            cut_times.append(self.last_fade['frame'])
+            cut_times.append((self.last_fade['frame'], 0.0))
         return cut_times

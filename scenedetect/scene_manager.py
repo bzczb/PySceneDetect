@@ -58,25 +58,29 @@ To use a `SceneManager` with a webcam/device or existing `cv2.VideoCapture` devi
 """
 
 import csv
-from enum import Enum
-from string import Template
-from typing import Iterable, List, Tuple, Optional, Dict, Callable, Union, TextIO
-import threading
-import queue
 import logging
 import math
+import queue
 import sys
+import threading
+from enum import Enum
+from string import Template
+from typing import (Callable, Dict, Iterable, List, Optional, TextIO, Tuple,
+                    Union)
 
 import cv2
 import numpy as np
-from scenedetect.thirdparty.simpletable import (SimpleTableCell, SimpleTableImage, SimpleTableRow,
-                                                SimpleTable, HTMLPage)
 
-from scenedetect.platform import (tqdm, get_and_create_path, get_cv2_imwrite_params)
 from scenedetect.frame_timecode import FrameTimecode
-from scenedetect.video_stream import VideoStream
+from scenedetect.platform import (get_and_create_path, get_cv2_imwrite_params,
+                                  tqdm)
 from scenedetect.scene_detector import SceneDetector, SparseSceneDetector
-from scenedetect.stats_manager import StatsManager, FrameMetricRegistered
+from scenedetect.stats_manager import FrameMetricRegistered, StatsManager
+from scenedetect.thirdparty.simpletable import (HTMLPage, SimpleTable,
+                                                SimpleTableCell,
+                                                SimpleTableImage,
+                                                SimpleTableRow)
+from scenedetect.video_stream import VideoStream
 
 logger = logging.getLogger('pyscenedetect')
 
@@ -132,11 +136,11 @@ def compute_downscale_factor(frame_width: int, effective_width: int = DEFAULT_MI
 
 
 def get_scenes_from_cuts(
-    cut_list: Iterable[FrameTimecode],
+    cut_list: Iterable[Tuple[FrameTimecode, float]],
     start_pos: Union[int, FrameTimecode],
     end_pos: Union[int, FrameTimecode],
     base_timecode: Optional[FrameTimecode] = None,
-) -> List[Tuple[FrameTimecode, FrameTimecode]]:
+) -> List[Tuple[Tuple[FrameTimecode, FrameTimecode], float]]:
     """Returns a list of tuples of start/end FrameTimecodes for each scene based on a
     list of detected scene cuts/breaks.
 
@@ -163,18 +167,20 @@ def get_scenes_from_cuts(
         logger.error('`base_timecode` argument is deprecated has no effect.')
 
     # Scene list, where scenes are tuples of (Start FrameTimecode, End FrameTimecode).
-    scene_list = []
+    scene_list: List[Tuple[Tuple[FrameTimecode, FrameTimecode], float]] = []
     if not cut_list:
-        scene_list.append((start_pos, end_pos))
+        scene_list.append(((start_pos, end_pos), 0.0))
         return scene_list
     # Initialize last_cut to the first frame we processed,as it will be
     # the start timecode for the first scene in the list.
     last_cut = start_pos
-    for cut in cut_list:
-        scene_list.append((last_cut, cut))
+    last_score = 0.0
+    for cut, score in cut_list:
+        scene_list.append(((last_cut, cut), last_score))
         last_cut = cut
+        last_score = score
     # Last scene is from last cut to end of video.
-    scene_list.append((last_cut, end_pos))
+    scene_list.append(((last_cut, end_pos), last_score))
 
     return scene_list
 
@@ -535,7 +541,7 @@ class SceneManager:
                 accessed via the `stats_manager` property of the resulting object to load
                 from or save to a file on disk.
         """
-        self._cutting_list = []
+        self._cutting_list: List[Tuple[int, float]] = []
         self._event_list = []
         self._detector_list = []
         self._sparse_detector_list = []
@@ -666,7 +672,7 @@ class SceneManager:
 
     def get_scene_list(self,
                        base_timecode: Optional[FrameTimecode] = None,
-                       start_in_scene: bool = False) -> List[Tuple[FrameTimecode, FrameTimecode]]:
+                       start_in_scene: bool = False) -> List[Tuple[Tuple[FrameTimecode, FrameTimecode], float]]:
         """Return a list of tuples of start/end FrameTimecodes for each detected scene.
 
         Arguments:
@@ -694,15 +700,15 @@ class SceneManager:
         # unless start_in_scene is True.
         if not cut_list and not start_in_scene:
             scene_list = []
-        return sorted(self._get_event_list() + scene_list)
+        return sorted(scene_list)
 
-    def _get_cutting_list(self) -> List[int]:
+    def _get_cutting_list(self) -> List[Tuple[FrameTimecode, float]]:
         """Return a sorted list of unique frame numbers of any detected scene cuts."""
         if not self._cutting_list:
             return []
         assert self._base_timecode is not None
         # Ensure all cuts are unique by using a set to remove all duplicates.
-        return [self._base_timecode + cut for cut in sorted(set(self._cutting_list))]
+        return [(self._base_timecode + cut, s) for cut, s in sorted(set(self._cutting_list))]
 
     def _get_event_list(self) -> List[Tuple[FrameTimecode, FrameTimecode]]:
         if not self._event_list:
@@ -730,7 +736,7 @@ class SceneManager:
             self._cutting_list += cuts
             new_cuts = True if cuts else False
             if callback:
-                for cut_frame_num in cuts:
+                for cut_frame_num, _ in cuts:
                     buffer_index = cut_frame_num - (frame_num + 1)
                     callback(self._frame_buffer[buffer_index], cut_frame_num)
         for detector in self._sparse_detector_list:
@@ -977,7 +983,7 @@ class SceneManager:
         # TODO(v0.7): Use the warnings module to turn this into a warning.
         if show_warning:
             logger.error('`get_cut_list()` is deprecated and will be removed in a future release.')
-        return self._get_cutting_list()
+        return [c for c, _ in self._get_cutting_list()]
 
     def get_event_list(
             self,
