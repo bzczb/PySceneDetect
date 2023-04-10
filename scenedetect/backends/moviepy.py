@@ -25,6 +25,7 @@ from typing import AnyStr, Tuple, Union, Optional
 import cv2
 from moviepy.video.io.ffmpeg_reader import FFMPEG_VideoReader
 from numpy import ndarray
+import numpy as np
 
 from scenedetect.frame_timecode import FrameTimecode
 from scenedetect.platform import get_file_name
@@ -64,10 +65,16 @@ class VideoStreamMoviePy(VideoStream):
         # cases return IOErrors (e.g. could not read duration/video resolution). These
         # should be mapped to specific errors, e.g. write a function to map MoviePy
         # exceptions to a new set of equivalents.
-        self._reader = FFMPEG_VideoReader(path, print_infos=print_infos)
-        # This will always be one behind self._reader.lastread when we finally call read()
+        self._reader = FFMPEG_VideoReader(
+            path,
+            print_infos=print_infos,
+            decode_file=False, # TODO decode_file=True is buggy
+            target_resolution=(160, 120)
+        )
+        
+        # This will always be one behind self._reader.last_read when we finally call read()
         # as MoviePy caches the first frame when opening the video. Thus self._last_frame
-        # will always be the current frame, and self._reader.lastread will be the next.
+        # will always be the current frame, and self._reader.last_read will be the next.
         self._last_frame: Union[bool, ndarray] = False
         self._last_frame_rgb: Optional[ndarray] = None
         # Older versions don't track the video position when calling read_frame so we need
@@ -185,7 +192,7 @@ class VideoStreamMoviePy(VideoStream):
             if target >= self.duration:
                 raise SeekError("Target frame is beyond end of video!") from ex
             raise
-        self._last_frame = self._reader.lastread
+        self._last_frame = self._reader.last_read
         self._frame_number = target.frame_num
 
     def reset(self):
@@ -207,8 +214,7 @@ class VideoStreamMoviePy(VideoStream):
             If decode = False, a bool indicating if advancing to the the next frame succeeded.
         """
         if not advance:
-            if self._last_frame_rgb is None:
-                self._last_frame_rgb = cv2.cvtColor(self._last_frame, cv2.COLOR_BGR2RGB)
+            return self._last_frame
             return self._last_frame_rgb
         if not hasattr(self._reader, 'lastread'):
             return False
@@ -221,7 +227,5 @@ class VideoStreamMoviePy(VideoStream):
             self._eof = True
         self._frame_number += 1
         if decode:
-            if self._last_frame_rgb is None:
-                self._last_frame_rgb = cv2.cvtColor(self._last_frame, cv2.COLOR_BGR2RGB)
-            return self._last_frame_rgb
+            return self._last_frame
         return True
