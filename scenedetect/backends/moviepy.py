@@ -73,7 +73,6 @@ class VideoStreamMoviePy(VideoStream):
         # as MoviePy caches the first frame when opening the video. Thus self._last_frame
         # will always be the current frame, and self._reader.last_read will be the next.
         self._last_frame: Union[bool, ndarray] = False
-        self._last_frame_rgb: Optional[ndarray] = None
         # Older versions don't track the video position when calling read_frame so we need
         # to keep track of the current frame number.
         self._frame_number = 0
