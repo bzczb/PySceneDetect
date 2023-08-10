@@ -211,11 +211,11 @@ class VideoStreamMoviePy(VideoStream):
         """
         if not advance:
             return self._last_frame
-        if not hasattr(self._reader, 'lastread'):
+        if not hasattr(self._reader, 'last_read'):
             return False
-        self._last_frame = self._reader.lastread
+        self._last_frame = self._reader.last_read
         self._reader.read_frame()
-        if self._last_frame is self._reader.lastread:
+        if self._last_frame is self._reader.last_read:
             # Didn't decode a new frame, must have hit EOF.
             if self._eof:
                 return False
